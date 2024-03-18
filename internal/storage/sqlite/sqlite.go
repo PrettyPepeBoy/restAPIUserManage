@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"github.com/mattn/go-sqlite3"
 	"tstUser/internal/storage"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 type Storage struct {
@@ -17,7 +15,7 @@ type Storage struct {
 	StmtFindUserId *sql.Stmt
 }
 
-func New(storagePath string) (*Storage, error) {
+func NewUserTable(storagePath string) (*Storage, error) {
 	const op = "data-logic/pack/storage/sqlite/New"
 
 	db, err := sql.Open("sqlite3", storagePath)
@@ -30,9 +28,8 @@ func New(storagePath string) (*Storage, error) {
 	    id INTEGER PRIMARY KEY,
 	    name TEXT NOT NULL,
 	    surname TEXT NOT NULL,
-	    cash FLOAT NOT NULL,
+	    cash INTEGER,
 	    date TEXT NOT NULL );
-	CREATE INDEX IF NOT EXISTS idx_cash ON user(cash)
 `)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -63,9 +60,10 @@ func New(storagePath string) (*Storage, error) {
 		StmtFindUserId: stmtFindUserId}, nil
 }
 
+// TODO add table for stuff
 func (s *Storage) CreateUser(name, surname, date string, cash float64) (int64, error) {
 	const op = "storage/sqlite/CreateUser"
-	res, err := s.StmtCreate.Exec(name, surname, date, cash)
+	res, err := s.StmtCreate.Exec(name, surname, cash, date)
 	if err != nil {
 		var sqliteErr sqlite3.Error
 		if errors.As(err, &sqliteErr) && errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {

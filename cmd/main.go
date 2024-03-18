@@ -31,7 +31,7 @@ func main() {
 	log.Info("starting url-shortner", slog.String("env", cfg.Env))
 	log.Debug("debug messages are enabled")
 	//инициализируем бд
-	storage, err := sqlite.New(cfg.StoragePath)
+	storage, err := sqlite.NewUserTable(cfg.StoragePath)
 	if err != nil {
 		log.Error("failed to init storage", sl.Err(err))
 		os.Exit(1)

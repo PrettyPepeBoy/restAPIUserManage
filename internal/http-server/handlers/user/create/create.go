@@ -8,25 +8,23 @@ import (
 	"log/slog"
 	"net/http"
 	"tstUser/internal/http-server/middleware/valid"
+	"tstUser/internal/http-server/transport/userDTO"
 	resp "tstUser/internal/lib/api/response"
 	"tstUser/internal/lib/logger/sl"
 	"tstUser/internal/storage"
 )
 
-type UserDTO struct {
-	Name    string  `json:"name" validate:"required,name"`
-	Surname string  `json:"surname" validate:"required,surname"`
-	Cash    float64 `json:"cash"`
-	Date    string  `json:"date" validate:"required,date"`
+type Request struct {
+	userDTO.UserDTO
 }
 
 type Response struct {
 	resp.Response
-	UserDTO
+	Request
 }
 
 type UserCreator interface {
-	CreateUser(name, surname, date string, cash float64) (int64, error)
+	CreateUser(name, surname, date string, cash int) (int64, error)
 }
 
 func New(log *slog.Logger, userCreator UserCreator) http.HandlerFunc {
@@ -36,7 +34,7 @@ func New(log *slog.Logger, userCreator UserCreator) http.HandlerFunc {
 			slog.String("op", op),
 			slog.String("requestID", middleware.GetReqID(r.Context())),
 		)
-		var req UserDTO
+		var req Request
 		err := render.DecodeJSON(r.Body, &req)
 		if err != nil {
 			log.Error("Failed to decode request body", sl.Err(err))
@@ -70,13 +68,16 @@ func New(log *slog.Logger, userCreator UserCreator) http.HandlerFunc {
 	}
 }
 
-func responseOK(w http.ResponseWriter, r *http.Request, req UserDTO) {
+func responseOK(w http.ResponseWriter, r *http.Request, req Request) {
 	render.JSON(w, r, Response{
 		Response: resp.OK(),
-		UserDTO: UserDTO{
-			Name:    req.Name,
-			Surname: req.Surname,
-			Date:    req.Date,
-			Cash:    req.Cash},
+		Request: Request{
+			userDTO.UserDTO{
+				Name:    req.Name,
+				Surname: req.Surname,
+				Cash:    req.Cash,
+				Date:    req.Date,
+			},
+		},
 	})
 }
