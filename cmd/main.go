@@ -8,10 +8,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"tstUser/config"
 	"tstUser/data-logic/functional"
 	"tstUser/data-logic/read"
 	"tstUser/data-logic/write"
+	"tstUser/internal/config"
+	"tstUser/internal/http-server/handlers/user/create"
+	"tstUser/internal/http-server/handlers/user/delete"
 	"tstUser/internal/http-server/middleware/logger"
 	"tstUser/internal/lib/logger/sl"
 	"tstUser/internal/storage/sqlite"
@@ -35,8 +37,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	_ = storage
-	_ = err
 	//инициализируем роутер
 	router := chi.NewRouter()
 	//инициализируем middleware для роутера
@@ -46,7 +46,8 @@ func main() {
 	router.Use(middleware.URLFormat)
 
 	//router.Post("/url", save.New(log, storage))
-
+	router.Post("/user", create.New(log, storage))
+	router.Delete("/user", delete.New(log, storage))
 	log.Info("starting server", slog.String("address", cfg.Address))
 
 	srv := &http.Server{
