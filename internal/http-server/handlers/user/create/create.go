@@ -15,7 +15,7 @@ import (
 )
 
 type Request struct {
-	userDTO.UserDTO
+	userDTO.UDTO
 }
 
 type Response struct {
@@ -72,7 +72,7 @@ func responseOK(w http.ResponseWriter, r *http.Request, req Request) {
 	render.JSON(w, r, Response{
 		Response: resp.OK(),
 		Request: Request{
-			userDTO.UserDTO{
+			userDTO.UDTO{
 				Name:    req.Name,
 				Surname: req.Surname,
 				Cash:    req.Cash,

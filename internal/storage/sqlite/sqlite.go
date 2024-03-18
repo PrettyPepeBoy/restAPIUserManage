@@ -60,8 +60,7 @@ func NewUserTable(storagePath string) (*Storage, error) {
 		StmtFindUserId: stmtFindUserId}, nil
 }
 
-// TODO add table for stuff
-func (s *Storage) CreateUser(name, surname, date string, cash float64) (int64, error) {
+func (s *Storage) CreateUser(name, surname, date string, cash int) (int64, error) {
 	const op = "storage/sqlite/CreateUser"
 	res, err := s.StmtCreate.Exec(name, surname, cash, date)
 	if err != nil {

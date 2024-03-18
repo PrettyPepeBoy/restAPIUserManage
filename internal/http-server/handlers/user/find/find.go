@@ -1,7 +1,7 @@
 package find
 
 import (
-	"tstUser/internal/http-server/handlers/user/create"
+	"tstUser/internal/http-server/transport/userDTO"
 	"tstUser/internal/lib/api/response"
 )
 
@@ -12,7 +12,7 @@ type Request struct {
 type Response struct {
 	response.Response
 	ID int
-	create.UserDTO
+	userDTO.UDTO
 }
 
 type UserFinder interface {
