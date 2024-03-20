@@ -2,13 +2,11 @@ package create
 
 import (
 	"errors"
-	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
-	"github.com/go-playground/validator/v10"
 	"log/slog"
 	"net/http"
-	"tstUser/internal/http-server/middleware/valid"
 	"tstUser/internal/http-server/transport/userDTO"
+	"tstUser/internal/lib/api/decode"
 	resp "tstUser/internal/lib/api/response"
 	"tstUser/internal/lib/logger/sl"
 	"tstUser/internal/storage"
@@ -21,38 +19,21 @@ type Request struct {
 type Response struct {
 	resp.Response
 	Request
+	ID int64
 }
 
 type UserCreator interface {
-	CreateUser(name, surname, date string, cash int) (int64, error)
+	CreateUser(name, surname, mail, date string, cash int) (int64, error)
 }
 
 func New(log *slog.Logger, userCreator UserCreator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		const op = "http-server/handlers/user/create/New"
-		log = log.With(
-			slog.String("op", op),
-			slog.String("requestID", middleware.GetReqID(r.Context())),
-		)
 		var req Request
-		err := render.DecodeJSON(r.Body, &req)
+		err := decode.Decode(w, r, log, &req)
 		if err != nil {
-			log.Error("Failed to decode request body", sl.Err(err))
-			render.JSON(w, r, resp.Error("failed to decode request body"))
-		}
-
-		log.Info("request body decoded", slog.Any("request", req))
-
-		if err := valid.CreateValidator().Struct(req); err != nil {
-			var validateErr validator.ValidationErrors
-			errors.As(err, &validateErr)
-			log.Error("invalid request", sl.Err(err))
-
-			render.JSON(w, r, resp.ValidateError(validateErr))
 			return
 		}
-
-		id, err := userCreator.CreateUser(req.Name, req.Surname, req.Date, req.Cash)
+		id, err := userCreator.CreateUser(req.Name, req.Surname, req.Mail, req.Date, req.Cash)
 		if err != nil {
 			if errors.Is(err, storage.ErrUserExist) {
 				log.Info("url already exists", slog.String("name", req.Name), slog.String("surname", req.Surname))
@@ -64,17 +45,19 @@ func New(log *slog.Logger, userCreator UserCreator) http.HandlerFunc {
 			return
 		}
 		log.Info("user added", slog.Int64("id", id))
-		responseOK(w, r, req)
+		responseOK(w, r, req, id)
 	}
 }
 
-func responseOK(w http.ResponseWriter, r *http.Request, req Request) {
+func responseOK(w http.ResponseWriter, r *http.Request, req Request, id int64) {
 	render.JSON(w, r, Response{
 		Response: resp.OK(),
+		ID:       id,
 		Request: Request{
 			userDTO.UDTO{
 				Name:    req.Name,
 				Surname: req.Surname,
+				Mail:    req.Mail,
 				Cash:    req.Cash,
 				Date:    req.Date,
 			},

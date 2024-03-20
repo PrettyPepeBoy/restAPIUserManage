@@ -28,8 +28,10 @@ func NewUserTable(storagePath string) (*Storage, error) {
 	    id INTEGER PRIMARY KEY,
 	    name TEXT NOT NULL,
 	    surname TEXT NOT NULL,
+	    mail TEXT NOT NULL UNIQUE ,
 	    cash INTEGER,
 	    date TEXT NOT NULL );
+	CREATE INDEX IF NOT EXISTS idx_mail ON user(mail)
 `)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
@@ -45,7 +47,7 @@ func NewUserTable(storagePath string) (*Storage, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	stmtCreate, err := db.Prepare("INSERT INTO user(name, surname, cash, date) VALUES(?,?,?,?)")
+	stmtCreate, err := db.Prepare("INSERT INTO user(name, surname, mail, cash, date) VALUES(?,?,?,?,?)")
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -60,9 +62,9 @@ func NewUserTable(storagePath string) (*Storage, error) {
 		StmtFindUserId: stmtFindUserId}, nil
 }
 
-func (s *Storage) CreateUser(name, surname, date string, cash int) (int64, error) {
+func (s *Storage) CreateUser(name, surname, mail, date string, cash int) (int64, error) {
 	const op = "storage/sqlite/CreateUser"
-	res, err := s.StmtCreate.Exec(name, surname, cash, date)
+	res, err := s.StmtCreate.Exec(name, surname, mail, cash, date)
 	if err != nil {
 		var sqliteErr sqlite3.Error
 		if errors.As(err, &sqliteErr) && errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
@@ -103,7 +105,7 @@ func (s *Storage) GetUserId(Id int64) (string, error) {
 		return "", storage.ErrUserNotFound
 	}
 	if err != nil {
-		return "", fmt.Errorf("%S: execute statement: %w", op, err)
+		return "", fmt.Errorf("%s: execute statement: %w", op, err)
 	}
 	return userFound, nil
 }

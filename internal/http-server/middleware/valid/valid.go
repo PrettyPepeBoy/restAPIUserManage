@@ -3,6 +3,7 @@ package valid
 import (
 	"github.com/go-playground/validator/v10"
 	"log"
+	"reflect"
 	"time"
 )
 
@@ -11,6 +12,8 @@ func CreateValidator() *validator.Validate {
 	validName(validate)
 	validSurname(validate)
 	validData(validate)
+	validCash(validate)
+	validID(validate)
 	return validate
 }
 
@@ -65,8 +68,27 @@ func validData(validate *validator.Validate) {
 	}
 }
 
-//func validCash(validate *validator.Validate){
-//	vErr := validate.RegisterValidation("cash", func(fl validator.FieldLevel) bool {
-//		cash := fl.Field().Float()
-//	})
-//}
+func validCash(validate *validator.Validate) {
+	vErr := validate.RegisterValidation("cash", func(fl validator.FieldLevel) bool {
+		value := fl.Field().Int()
+		if reflect.TypeOf(value).Kind() != reflect.Int64 {
+			return false
+		}
+		return true
+	})
+	if vErr != nil {
+		log.Fatal("register cash", vErr)
+	}
+}
+
+func validID(validate *validator.Validate) {
+	vErr := validate.RegisterValidation("id", func(fl validator.FieldLevel) bool {
+		if reflect.TypeOf(fl.Field()).Kind() != reflect.Int64 {
+			return false
+		}
+		return true
+	})
+	if vErr != nil {
+		log.Fatal("register cash", vErr)
+	}
+}

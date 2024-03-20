@@ -39,11 +39,12 @@ func ValidateError(errs validator.ValidationErrors) Response {
 			errMsgs = append(errMsgs, fmt.Sprintf("field %s is not a valid name", err.Field()))
 		case "surname":
 			errMsgs = append(errMsgs, fmt.Sprintf("field %s is not a valid surname", err.Field()))
+		case "email":
+			errMsgs = append(errMsgs, fmt.Sprintf("field %s is not a valid email", err.Field()))
 		case "cash":
 			errMsgs = append(errMsgs, fmt.Sprintf("field %s is not a valid cash", err.Field()))
 		case "date":
 			errMsgs = append(errMsgs, fmt.Sprintf("field %s is not a valid date", err.Field()))
-
 		default:
 			errMsgs = append(errMsgs, fmt.Sprintf("field %s is not a valid", err.Field()))
 		}
