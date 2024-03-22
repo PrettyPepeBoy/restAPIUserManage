@@ -22,6 +22,7 @@ type Response struct {
 	ID int64
 }
 
+//go:generate go run github.com/vektra/mockery/v2@v2.28.2 --name=UserCreator
 type UserCreator interface {
 	CreateUser(name, surname, mail, date string, cash int) (int64, error)
 }

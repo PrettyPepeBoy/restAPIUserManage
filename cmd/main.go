@@ -12,6 +12,8 @@ import (
 	"tstUser/data-logic/read"
 	"tstUser/data-logic/write"
 	"tstUser/internal/config"
+	"tstUser/internal/http-server/handlers/redirect"
+	"tstUser/internal/http-server/handlers/user/check"
 	"tstUser/internal/http-server/handlers/user/create"
 	"tstUser/internal/http-server/handlers/user/delete"
 	"tstUser/internal/http-server/middleware/logger"
@@ -28,7 +30,7 @@ func main() {
 	cfg := config.MustLoad()
 	//инициализируем логгер в перменной окружения, работающей в данной ситуации
 	log := setupLogger(cfg.Env)
-	log.Info("starting url-shortner", slog.String("env", cfg.Env))
+	log.Info("starting tst-user", slog.String("env", cfg.Env))
 	log.Debug("debug messages are enabled")
 	//инициализируем бд
 	storage, err := sqlite.NewUserTable(cfg.StoragePath)
@@ -45,9 +47,16 @@ func main() {
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
 
-	//router.Post("/url", save.New(log, storage))
-	router.Post("/user", create.New(log, storage))
-	router.Delete("/user", delete.New(log, storage))
+	router.Route("/user", func(r chi.Router) {
+		r.Use(middleware.BasicAuth("tst-user", map[string]string{
+			cfg.HTTPServer.User: cfg.HTTPServer.Password,
+		}))
+		r.Post("/", create.New(log, storage))
+		r.Delete("/", delete.New(log, storage))
+		r.Get("/", check.New(log, storage))
+	})
+
+	router.Get("/{mail}", redirect.New(log, storage))
 	log.Info("starting server", slog.String("address", cfg.Address))
 
 	srv := &http.Server{

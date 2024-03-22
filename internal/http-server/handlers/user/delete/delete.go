@@ -12,7 +12,7 @@ import (
 )
 
 type Request struct {
-	ID int64
+	ID int64 `json:"id"`
 }
 
 type Response struct {

@@ -9,10 +9,11 @@ import (
 )
 
 type Storage struct {
-	db             *sql.DB
-	StmtDelete     *sql.Stmt
-	StmtCreate     *sql.Stmt
-	StmtFindUserId *sql.Stmt
+	db              *sql.DB
+	StmtDelete      *sql.Stmt
+	StmtCreate      *sql.Stmt
+	StmtFindUser    *sql.Stmt
+	StmtCheckUserID *sql.Stmt
 }
 
 func NewUserTable(storagePath string) (*Storage, error) {
@@ -52,14 +53,22 @@ func NewUserTable(storagePath string) (*Storage, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	stmtFindUserId, err := db.Prepare("SELECT id FROM user WHERE id = ?")
+	stmtCheckUserId, err := db.Prepare("SELECT mail FROM user WHERE id = ?")
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
+
+	stmtFindUser, err := db.Prepare("SELECT mail FROM user WHERE mail = ?")
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
 	return &Storage{db: db,
-		StmtDelete:     stmtDelete,
-		StmtCreate:     stmtCreate,
-		StmtFindUserId: stmtFindUserId}, nil
+		StmtDelete:      stmtDelete,
+		StmtCreate:      stmtCreate,
+		StmtCheckUserID: stmtCheckUserId,
+		StmtFindUser:    stmtFindUser,
+	}, nil
 }
 
 func (s *Storage) CreateUser(name, surname, mail, date string, cash int) (int64, error) {
@@ -97,15 +106,28 @@ func (s *Storage) DeleteUser(id int64) error {
 	return nil
 }
 
-func (s *Storage) GetUserId(Id int64) (string, error) {
-	const op = "storage/sqlite/GetUserId"
-	var userFound string
-	err := s.StmtFindUserId.QueryRow(Id).Scan(&userFound)
+func (s *Storage) CheckUserID(Id int64) (string, error) {
+	const op = "storage/sqlite/CheckUserID"
+	var userMail string
+	err := s.StmtCheckUserID.QueryRow(Id).Scan(&userMail)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", storage.ErrUserNotFound
 	}
 	if err != nil {
 		return "", fmt.Errorf("%s: execute statement: %w", op, err)
 	}
-	return userFound, nil
+	return userMail, nil
+}
+
+func (s *Storage) GetUser(userMail string) error {
+	const op = "storage/sqlite/GetUser"
+	var mail string
+	err := s.StmtFindUser.QueryRow(userMail).Scan(mail)
+	if errors.Is(err, sql.ErrNoRows) {
+		return storage.ErrUserNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("%s: execute statement: %w", op, err)
+	}
+	return nil
 }
