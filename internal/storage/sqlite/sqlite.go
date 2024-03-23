@@ -79,6 +79,7 @@ func (s *Storage) CreateUser(name, surname, mail, date string, cash int) (int64,
 		if errors.As(err, &sqliteErr) && errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
 			return 0, fmt.Errorf("%s, %w", op, storage.ErrUserExist)
 		}
+		return 0, fmt.Errorf("%s: execute statemnt: %w", op, err)
 	}
 
 	id, err := res.LastInsertId()

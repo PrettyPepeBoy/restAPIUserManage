@@ -37,9 +37,8 @@ func TestSaveHandler(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
+
 		t.Run(tc.nameTest, func(t *testing.T) {
-			t.Parallel()
 			// Создаем объект мока стораджа
 			urlSaverMock := mocks.NewUserCreator(t)
 
@@ -50,7 +49,7 @@ func TestSaveHandler(t *testing.T) {
 				// Сообщаем моку, какой к нему будет запрос, и что надо вернуть
 				urlSaverMock.On("CreateUser", tc.usr.Name, tc.usr.Surname, tc.usr.Mail, tc.usr.Date, tc.usr.Cash).
 					Return(int64(1), tc.mockError).
-					Once() // Запрос будет ровно один
+					Once() //
 			}
 
 			// Создаем наш хэндлер
