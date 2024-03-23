@@ -18,7 +18,7 @@ func Decode(w http.ResponseWriter, r *http.Request, log *slog.Logger, req any) e
 		slog.String("op", op),
 		slog.String("requestID", middleware.GetReqID(r.Context())),
 	)
-	err := render.DecodeJSON(r.Body, &req)
+	err := render.DecodeJSON(r.Body, req)
 	if err != nil {
 		log.Error("Failed to decode request body", sl.Err(err))
 		render.JSON(w, r, resp.Error("failed to decode request body"))

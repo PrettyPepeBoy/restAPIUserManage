@@ -5,5 +5,5 @@ type UDTO struct {
 	Surname string `json:"surname" validate:"required,surname"`
 	Mail    string `json:"mail" validate:"required,email"`
 	Date    string `json:"date" validate:"required,date"`
-	Cash    int    `json:"cash" validate:"required,cash"`
+	Cash    int    `json:"cash"`
 }

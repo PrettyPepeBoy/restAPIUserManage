@@ -37,9 +37,10 @@ func TestSaveHandler(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-
+		tc := tc
 		t.Run(tc.nameTest, func(t *testing.T) {
 			// Создаем объект мока стораджа
+			t.Parallel()
 			urlSaverMock := mocks.NewUserCreator(t)
 
 			// Если ожидается успешный ответ, значит к моку точно будет вызов
