@@ -13,7 +13,7 @@ import (
 )
 
 type Request struct {
-	userDTO.UDTO
+	userDTO.UserDTO
 }
 
 type Response struct {
@@ -37,7 +37,7 @@ func New(log *slog.Logger, userCreator UserCreator) http.HandlerFunc {
 		id, err := userCreator.CreateUser(req.Name, req.Surname, req.Mail, req.Date, req.Cash)
 		if err != nil {
 			if errors.Is(err, storage.ErrUserExist) {
-				log.Info("url already exists", slog.String("name", req.Name), slog.String("surname", req.Surname))
+				log.Info("user already exists", slog.String("mail", req.Mail))
 				render.JSON(w, r, resp.Error("user already exists"))
 				return
 			}
@@ -55,7 +55,7 @@ func responseOK(w http.ResponseWriter, r *http.Request, req Request, id int64) {
 		Response: resp.OK(),
 		ID:       id,
 		Request: Request{
-			userDTO.UDTO{
+			userDTO.UserDTO{
 				Name:    req.Name,
 				Surname: req.Surname,
 				Mail:    req.Mail,

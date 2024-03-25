@@ -17,13 +17,13 @@ import (
 func TestSaveHandler(t *testing.T) {
 	cases := []struct {
 		nameTest  string // Имя теста
-		usr       userDTO.UDTO
+		usr       userDTO.UserDTO
 		respError string // Какую ошибку мы должны получить?
 		mockError error  // Ошибку, которую вернёт мок
 	}{
 		{
 			nameTest: "Success",
-			usr: userDTO.UDTO{
+			usr: userDTO.UserDTO{
 				Name:    "Dmitrii",
 				Surname: "Shilenko",
 				Mail:    "Prettypepe@mail.ru",

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"tstUser/internal/config"
+	"tstUser/internal/http-server/handlers/products"
 	"tstUser/internal/http-server/handlers/redirect"
 	"tstUser/internal/http-server/handlers/user/check"
 	"tstUser/internal/http-server/handlers/user/create"
@@ -34,12 +35,12 @@ func main() {
 		log.Error("failed to init storage", sl.Err(err))
 		os.Exit(1)
 	}
-	storageGoods, err := sqlite.NewStuffTable(cfg.StoragePath)
+	storageProducts, err := sqlite.NewProductsTable(cfg.StoragePath)
 	if err != nil {
 		log.Error("failed to init storage", sl.Err(err))
 		os.Exit(1)
 	}
-	_ = storageGoods
+
 	//инициализируем роутер
 	router := chi.NewRouter()
 	//инициализируем middleware для роутера
@@ -55,6 +56,13 @@ func main() {
 		r.Post("/", create.New(log, storageUser))
 		r.Delete("/", delete.New(log, storageUser))
 		r.Get("/", check.New(log, storageUser))
+	})
+
+	router.Route("/product", func(r chi.Router) {
+		r.Use(middleware.BasicAuth("tst-user", map[string]string{
+			cfg.HTTPServer.User: cfg.HTTPServer.Password,
+		}))
+		r.Post("/", products.CreateProduct(log, storageProducts))
 	})
 
 	router.Get("/{mail}", redirect.New(log, storageUser))
