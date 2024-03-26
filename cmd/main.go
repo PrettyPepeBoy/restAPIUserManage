@@ -63,6 +63,8 @@ func main() {
 			cfg.HTTPServer.User: cfg.HTTPServer.Password,
 		}))
 		r.Post("/", products.CreateProduct(log, storageProducts))
+		r.Get("/", products.GetProduct(log, storageProducts))
+		r.Put("/", products.UpdateProduct(log, storageProducts))
 	})
 
 	router.Get("/{mail}", redirect.New(log, storageUser))
