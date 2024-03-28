@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mattn/go-sqlite3"
+	"tstUser/internal/http-server/transport/userDTO"
 	"tstUser/internal/storage"
 )
 
@@ -14,6 +15,7 @@ type Storage struct {
 	StmtCreate      *sql.Stmt
 	StmtFindUser    *sql.Stmt
 	StmtCheckUserID *sql.Stmt
+	StmtUpdateUser  *sql.Stmt
 }
 
 func NewUserTable(storagePath string) (*Storage, error) {
@@ -58,7 +60,12 @@ func NewUserTable(storagePath string) (*Storage, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	stmtFindUser, err := db.Prepare("SELECT mail FROM user WHERE mail = ?")
+	stmtFindUser, err := db.Prepare("SELECT id, name, surname, mail, cash, date  FROM user WHERE id = ?")
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	stmtUpdateUser, err := db.Prepare("UPDATE user SET name = ?, surname = ?, mail = ?, cash = ?, date = ? WHERE id = ?")
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -68,6 +75,7 @@ func NewUserTable(storagePath string) (*Storage, error) {
 		StmtCreate:      stmtCreate,
 		StmtCheckUserID: stmtCheckUserId,
 		StmtFindUser:    stmtFindUser,
+		StmtUpdateUser:  stmtUpdateUser,
 	}, nil
 }
 
@@ -120,15 +128,31 @@ func (s *Storage) CheckUserID(Id int64) (string, error) {
 	return userMail, nil
 }
 
-func (s *Storage) GetUser(userMail string) error {
+func (s *Storage) GetUserInfo(ID int64) (userDTO.UserDTO, error) {
 	const op = "storage/sqlite/GetUser"
-	var mail string
-	err := s.StmtFindUser.QueryRow(userMail).Scan(mail)
+	var user userDTO.UserDTO
+	err := s.StmtFindUser.QueryRow(ID).Scan(&user.ID, &user.Name, &user.Surname, &user.Mail, &user.Cash, &user.Date)
 	if errors.Is(err, sql.ErrNoRows) {
-		return storage.ErrUserNotFound
+		return userDTO.UserDTO{}, storage.ErrUserNotFound
 	}
 	if err != nil {
-		return fmt.Errorf("%s: execute statement: %w", op, err)
+		return userDTO.UserDTO{}, fmt.Errorf("%s: execute statement: %w", op, err)
+	}
+	return user, nil
+}
+
+func (s *Storage) UpdateUser(user userDTO.UserDTO) error {
+	const op = "storage/sqlite/UpdateUser"
+	res, err := s.StmtUpdateUser.Exec(user.Name, user.Surname, user.Mail, user.Cash, user.Date, user.ID)
+	if err != nil {
+		return fmt.Errorf("%s: execute statment: %w", op, err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("%s: execute statment: %w", op, err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("%s, %w", op, storage.ErrUserNotFound)
 	}
 	return nil
 }

@@ -48,12 +48,12 @@ func NewProductsTable(storagePath string) (*Products, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	stmtUpdate, err := db.Prepare(`UPDATE products SET name = ?, amount = ?, price =? WHERE name = ?`)
+	stmtUpdate, err := db.Prepare(`UPDATE products SET name = ?, amount = ?, price =? WHERE id = ?`)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	stmtGet, err := db.Prepare(`SELECT id, price, amount FROM products where name = ?`)
+	stmtGet, err := db.Prepare(`SELECT name, price, amount FROM products WHERE id = ?`)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
@@ -83,9 +83,9 @@ func (p *Products) CreateProducts(name string, price, amount int64) (int64, erro
 
 }
 
-func (p *Products) UpdateProducts(name string, amount, price int64, oldName string) error {
+func (p *Products) UpdateProducts(up productDTO.ProductDTO) error {
 	const op = "internal/storage/sqlite/UpdateProducts"
-	res, err := p.StmtUpdate.Exec(name, amount, price, oldName)
+	res, err := p.StmtUpdate.Exec(up.Name, up.Amount, up.Price, up.ID)
 	if err != nil {
 		return fmt.Errorf("%s: execute statement: %w", op, err)
 	}
@@ -99,16 +99,16 @@ func (p *Products) UpdateProducts(name string, amount, price int64, oldName stri
 	return nil
 }
 
-func (p *Products) GetProducts(name string) (productDTO.DTOWithID, error) {
+func (p *Products) GetProducts(ID int64) (productDTO.ProductDTO, error) {
 	const op = "internal/storage/sqlite/GetProducts"
-	var product productDTO.DTOWithID
-	err := p.StmtGet.QueryRow(name).Scan(&product.ID, &product.Price, &product.Amount)
+	var product productDTO.ProductDTO
+	err := p.StmtGet.QueryRow(ID).Scan(&product.Name, &product.Price, &product.Amount)
 	if errors.Is(err, sql.ErrNoRows) {
-		return productDTO.DTOWithID{}, fmt.Errorf("%s, %w", op, storage.ErrProductNotFound)
+		return productDTO.ProductDTO{}, fmt.Errorf("%s, %w", op, storage.ErrProductNotFound)
 	}
 	if err != nil {
-		return productDTO.DTOWithID{}, fmt.Errorf("%s: execute statement %w", op, err)
+		return productDTO.ProductDTO{}, fmt.Errorf("%s: execute statement %w", op, err)
 	}
-	product.Name = name
+	product.ID = ID
 	return product, nil
 }

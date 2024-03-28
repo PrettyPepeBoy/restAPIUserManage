@@ -3,8 +3,10 @@ package products
 import (
 	"errors"
 	"github.com/go-chi/render"
+	"github.com/go-playground/validator/v10"
 	"log/slog"
 	"net/http"
+	"tstUser/internal/http-server/middleware/valid"
 	"tstUser/internal/http-server/transport/productDTO"
 	"tstUser/internal/lib/api/decode"
 	"tstUser/internal/lib/api/response"
@@ -22,16 +24,17 @@ type ProductCreator interface {
 }
 
 type ProductGetter interface {
-	GetProducts(name string) (productDTO.DTOWithID, error)
+	GetProducts(ID int64) (productDTO.ProductDTO, error)
 }
 
 type ProductUpdater interface {
-	UpdateProducts(name string, price, amount int64, oldName string) error
+	GetProducts(ID int64) (productDTO.ProductDTO, error)
+	UpdateProducts(up productDTO.ProductDTO) error
 }
 
 func CreateProduct(log *slog.Logger, productCreator ProductCreator) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req productDTO.DTOWithID
+		var req productDTO.ProductDTO
 		err := decode.Decode(w, r, log, &req)
 		if err != nil {
 			return
@@ -48,21 +51,21 @@ func CreateProduct(log *slog.Logger, productCreator ProductCreator) http.Handler
 			return
 		}
 		log.Info("product created", slog.Int64("id", req.ID))
-		responseCreateProductOK(w, r, req)
+		responseOK(w, r, req)
 	}
 }
 
 func GetProduct(log *slog.Logger, productGetter ProductGetter) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req productDTO.DTOName
+		var req productDTO.DTOid
 		err := decode.Decode(w, r, log, &req)
 		if err != nil {
 			return
 		}
-		product, err := productGetter.GetProducts(req.Name)
+		product, err := productGetter.GetProducts(req.ID)
 		if err != nil {
 			if errors.Is(err, storage.ErrProductNotFound) {
-				log.Info("product doesn't exist", slog.String("name", req.Name))
+				log.Info("product doesn't exist", slog.Int64("id", req.ID))
 				render.JSON(w, r, response.Error("product doesn't exist"))
 				return
 			}
@@ -79,7 +82,7 @@ func GetProduct(log *slog.Logger, productGetter ProductGetter) http.HandlerFunc 
 			slog.Int64("price", product.Price),
 			slog.Int64("amount", product.Amount),
 			slog.String("name", product.Name))
-		responseGetProductOK(w, r, product)
+		responseOK(w, r, product)
 	}
 }
 
@@ -90,43 +93,55 @@ func UpdateProduct(log *slog.Logger, productUpdater ProductUpdater) http.Handler
 		if err != nil {
 			return
 		}
-		err = productUpdater.UpdateProducts(req.Name, req.Amount, req.Price, req.OldName)
+		product, err := productUpdater.GetProducts(req.ID)
 		if err != nil {
 			if errors.Is(err, storage.ErrProductNotFound) {
-				log.Info("there is no such product", storage.ErrProductNotFound)
+				log.Error("there is no such product", storage.ErrProductNotFound)
 				render.JSON(w, r, response.Error("product not found"))
 				return
 			}
+			log.Error("failed to get product", err)
+			render.JSON(w, r, response.Error("failed to get product"))
+			return
+		}
+		if req.Name != nil {
+			product.Name = *req.Name
+		}
+		if req.Amount != nil {
+			product.Amount = *req.Amount
+		}
+		if req.Price != nil {
+			product.Price = *req.Price
+		}
+		if err := valid.CreateValidator().Struct(product); err != nil {
+			var validateErr validator.ValidationErrors
+			errors.As(err, &validateErr)
+			log.Error("invalid request", sl.Err(err))
+
+			render.JSON(w, r, response.ValidateError(validateErr))
+			return
+		}
+		err = productUpdater.UpdateProducts(product)
+		if err != nil {
 			log.Error("failed to update product", sl.Err(err))
 			render.JSON(w, r, response.Error("failed to update product"))
 			return
 		}
-		log.Info("update product")
+		log.Info("product updated")
+		response.OK()
 	}
 }
 
 //TODO ОПЕРАЦИИ
 
-func responseCreateProductOK(w http.ResponseWriter, r *http.Request, req productDTO.DTOWithID) {
+func responseOK(w http.ResponseWriter, r *http.Request, req productDTO.ProductDTO) {
 	render.JSON(w, r, Response{
 		Response: response.OK(),
-		Answer: productDTO.DTOWithID{
+		Answer: productDTO.ProductDTO{
 			ID:     req.ID,
 			Name:   req.Name,
 			Price:  req.Price,
 			Amount: req.Amount,
-		},
-	})
-}
-
-func responseGetProductOK(w http.ResponseWriter, r *http.Request, product productDTO.DTOWithID) {
-	render.JSON(w, r, Response{
-		Response: response.OK(),
-		Answer: productDTO.DTOWithID{
-			ID:     product.ID,
-			Name:   product.Name,
-			Price:  product.Price,
-			Amount: product.Amount,
 		},
 	})
 }

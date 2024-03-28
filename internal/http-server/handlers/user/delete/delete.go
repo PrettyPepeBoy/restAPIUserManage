@@ -36,7 +36,7 @@ func New(log *slog.Logger, userDeleter UserDeleter) http.HandlerFunc {
 		err = userDeleter.DeleteUser(req.ID)
 		if err != nil {
 			if errors.Is(err, storage.ErrUserNotFound) {
-				log.Info("url not exist")
+				log.Info("user not exist")
 				render.JSON(w, r, resp.Error("user do not exist"))
 				return
 			}

@@ -7,11 +7,12 @@ import (
 	"net/http"
 	"os"
 	"tstUser/internal/config"
+	"tstUser/internal/http-server/handlers/operations"
 	"tstUser/internal/http-server/handlers/products"
-	"tstUser/internal/http-server/handlers/redirect"
 	"tstUser/internal/http-server/handlers/user/check"
 	"tstUser/internal/http-server/handlers/user/create"
 	"tstUser/internal/http-server/handlers/user/delete"
+	"tstUser/internal/http-server/handlers/user/update"
 	"tstUser/internal/http-server/middleware/logger"
 	"tstUser/internal/lib/logger/handlers/slogpretty"
 	"tstUser/internal/lib/logger/sl"
@@ -56,6 +57,7 @@ func main() {
 		r.Post("/", create.New(log, storageUser))
 		r.Delete("/", delete.New(log, storageUser))
 		r.Get("/", check.New(log, storageUser))
+		r.Put("/", update.New(log, storageUser))
 	})
 
 	router.Route("/product", func(r chi.Router) {
@@ -67,7 +69,14 @@ func main() {
 		r.Put("/", products.UpdateProduct(log, storageProducts))
 	})
 
-	router.Get("/{mail}", redirect.New(log, storageUser))
+	router.Route("/operations", func(r chi.Router) {
+		r.Use(middleware.BasicAuth("tst-user", map[string]string{
+			cfg.HTTPServer.User: cfg.HTTPServer.Password,
+		}))
+		r.Put("/buy", operations.BuyProduct(log, 1, 4, storageProducts, storageUser))
+	})
+
+	//router.Get("/{mail}", redirect.New(log, storageUser))
 	log.Info("starting server", slog.String("address", cfg.Address))
 
 	srv := &http.Server{
