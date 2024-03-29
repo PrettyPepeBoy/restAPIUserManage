@@ -2,9 +2,11 @@ package operations
 
 import (
 	"errors"
+	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"tstUser/internal/http-server/middleware/valid"
 	"tstUser/internal/http-server/transport/productDTO"
 	"tstUser/internal/http-server/transport/userDTO"
@@ -28,8 +30,25 @@ type UserBuyer interface {
 	UpdateUser(user userDTO.UserDTO) error
 }
 
-func BuyProduct(log *slog.Logger, ProductID, UserID int64, productBuyer ProductBuyer, userBuyer UserBuyer) http.HandlerFunc {
+func BuyProduct(log *slog.Logger, productBuyer ProductBuyer, userBuyer UserBuyer) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ps := chi.URLParam(r, "productID")
+		productID, err := strconv.Atoi(ps)
+		if err != nil {
+			log.Error("wrong request productID")
+			render.JSON(w, r, response.Error("wrong request productID"))
+			return
+		}
+		ProductID := int64(productID)
+
+		us := chi.URLParam(r, "userID")
+		userID, err := strconv.Atoi(us)
+		if err != nil {
+			log.Error("wrong request userID")
+			render.JSON(w, r, response.Error("wrong request userID"))
+			return
+		}
+		UserID := int64(userID)
 		user, err := userBuyer.GetUserInfo(UserID)
 		if err != nil {
 			if errors.Is(err, storage.ErrUserNotFound) {

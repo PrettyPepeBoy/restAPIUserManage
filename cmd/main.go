@@ -73,7 +73,7 @@ func main() {
 		r.Use(middleware.BasicAuth("tst-user", map[string]string{
 			cfg.HTTPServer.User: cfg.HTTPServer.Password,
 		}))
-		r.Put("/buy", operations.BuyProduct(log, 1, 4, storageProducts, storageUser))
+		r.Put("/buy/{userID}&{productID}", operations.BuyProduct(log, storageProducts, storageUser))
 	})
 
 	//router.Get("/{mail}", redirect.New(log, storageUser))
