@@ -8,29 +8,19 @@ import (
 	"net/http"
 	"strconv"
 	"tstUser/internal/http-server/middleware/valid"
-	"tstUser/internal/http-server/transport/productDTO"
-	"tstUser/internal/http-server/transport/userDTO"
 	"tstUser/internal/lib/api/response"
-	"tstUser/internal/storage"
+	"tstUser/internal/storage/service"
+	"tstUser/internal/storage/storages"
+	"tstUser/internal/storage/storages/errs"
 )
 
 type Response struct {
 	response.Response
-	userDTO.UserDTO
-	productDTO.ProductDTO
+	user    storages.User
+	product storages.Product
 }
 
-type ProductBuyer interface {
-	GetProducts(ID int64) (productDTO.ProductDTO, error)
-	UpdateProducts(up productDTO.ProductDTO) error
-}
-
-type UserBuyer interface {
-	GetUserInfo(ID int64) (userDTO.UserDTO, error)
-	UpdateUser(user userDTO.UserDTO) error
-}
-
-func BuyProduct(log *slog.Logger, productBuyer ProductBuyer, userBuyer UserBuyer) http.HandlerFunc {
+func BuyProduct(log *slog.Logger, productBuyer service.ProductService, userBuyer service.UserService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ps := chi.URLParam(r, "productID")
 		productID, err := strconv.Atoi(ps)
@@ -49,9 +39,10 @@ func BuyProduct(log *slog.Logger, productBuyer ProductBuyer, userBuyer UserBuyer
 			return
 		}
 		UserID := int64(userID)
+
 		user, err := userBuyer.GetUserInfo(UserID)
 		if err != nil {
-			if errors.Is(err, storage.ErrUserNotFound) {
+			if errors.Is(err, errs.ErrUserNotFound) {
 				log.Error("user is not exist")
 				render.JSON(w, r, response.Error("user is not exist"))
 				return
@@ -62,7 +53,7 @@ func BuyProduct(log *slog.Logger, productBuyer ProductBuyer, userBuyer UserBuyer
 		}
 		products, err := productBuyer.GetProducts(ProductID)
 		if err != nil {
-			if errors.Is(err, storage.ErrProductNotFound) {
+			if errors.Is(err, errs.ErrProductNotFound) {
 				log.Error("failed to get product")
 				render.JSON(w, r, response.Error("product not found"))
 				return
@@ -73,18 +64,18 @@ func BuyProduct(log *slog.Logger, productBuyer ProductBuyer, userBuyer UserBuyer
 		}
 
 		err = valid.Buy(user, products)
-		if errors.Is(err, storage.ErrProductsEmpty) {
+		if errors.Is(err, errs.ErrProductsEmpty) {
 			log.Info("product amount is zero")
 			render.JSON(w, r, response.Error("product amount is zero"))
 			return
 		}
-		if errors.Is(err, storage.ErrCashIsNotEnough) {
+		if errors.Is(err, errs.ErrCashIsNotEnough) {
 			log.Info("user's cash is not enough")
 			render.JSON(w, r, response.Error("cash is not enough"))
 			return
 		}
 
-		user.Cash -= int(products.Price)
+		user.Cash -= products.Price
 		err = userBuyer.UpdateUser(user)
 		if err != nil {
 			log.Error("failed to update User")
@@ -103,22 +94,22 @@ func BuyProduct(log *slog.Logger, productBuyer ProductBuyer, userBuyer UserBuyer
 	}
 }
 
-func responseBuyOK(w http.ResponseWriter, r *http.Request, user userDTO.UserDTO, products productDTO.ProductDTO) {
+func responseBuyOK(w http.ResponseWriter, r *http.Request, user storages.User, product storages.Product) {
 	render.JSON(w, r, Response{
 		Response: response.OK(),
-		UserDTO: userDTO.UserDTO{
+		user: storages.User{
 			Name:    user.Name,
 			Surname: user.Surname,
 			Mail:    user.Mail,
 			Cash:    user.Cash,
 			Date:    user.Date,
-			ID:      user.ID,
+			Id:      user.Id,
 		},
-		ProductDTO: productDTO.ProductDTO{
-			Name:   products.Name,
-			Amount: products.Amount,
-			Price:  products.Price,
-			ID:     products.ID,
+		product: storages.Product{
+			Name:   product.Name,
+			Amount: product.Amount,
+			Price:  product.Price,
+			Id:     product.Id,
 		},
 	})
 }

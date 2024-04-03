@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"tstUser/internal/lib/api/response"
 	"tstUser/internal/lib/logger/sl"
-	"tstUser/internal/storage"
+	"tstUser/internal/storage/storages/errs"
 )
 
 type UserFinder interface {
@@ -32,7 +32,7 @@ func New(log *slog.Logger, userFinder UserFinder) http.HandlerFunc {
 		}
 		err := userFinder.GetUser(mail)
 		if err != nil {
-			if errors.Is(err, storage.ErrUserNotFound) {
+			if errors.Is(err, errs.ErrUserNotFound) {
 				log.Info("mail not found", "mail", mail)
 				render.JSON(w, r, response.Error("not found"))
 				return

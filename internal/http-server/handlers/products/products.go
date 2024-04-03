@@ -6,12 +6,14 @@ import (
 	"github.com/go-playground/validator/v10"
 	"log/slog"
 	"net/http"
+	"tstUser/internal/http-server/DTO"
 	"tstUser/internal/http-server/middleware/valid"
-	"tstUser/internal/http-server/transport/productDTO"
 	"tstUser/internal/lib/api/decode"
 	"tstUser/internal/lib/api/response"
 	"tstUser/internal/lib/logger/sl"
-	"tstUser/internal/storage"
+	"tstUser/internal/storage/service"
+	"tstUser/internal/storage/storages"
+	"tstUser/internal/storage/storages/errs"
 )
 
 type Response struct {
@@ -19,29 +21,21 @@ type Response struct {
 	Answer any
 }
 
-type ProductCreator interface {
-	CreateProducts(name string, price, amount int64) (int64, error)
-}
-
-type ProductGetter interface {
-	GetProducts(ID int64) (productDTO.ProductDTO, error)
-}
-
-type ProductUpdater interface {
-	GetProducts(ID int64) (productDTO.ProductDTO, error)
-	UpdateProducts(up productDTO.ProductDTO) error
-}
-
-func CreateProduct(log *slog.Logger, productCreator ProductCreator) http.HandlerFunc {
+func CreateProduct(log *slog.Logger, productCreator service.ProductService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req productDTO.ProductDTO
+		var req DTO.ProductDTO
 		err := decode.Decode(w, r, log, &req)
 		if err != nil {
 			return
 		}
-		req.ID, err = productCreator.CreateProducts(req.Name, req.Price, req.Amount)
+		product := storages.Product{
+			Name:   req.Name,
+			Price:  req.Price,
+			Amount: req.Amount,
+		}
+		req.ID, err = productCreator.CreateProducts(product)
 		if err != nil {
-			if errors.Is(err, storage.ErrProductsExist) {
+			if errors.Is(err, errs.ErrProductsExist) {
 				log.Info("product already exists", slog.String("name", req.Name))
 				render.JSON(w, r, response.Error("product already exists"))
 				return
@@ -51,20 +45,20 @@ func CreateProduct(log *slog.Logger, productCreator ProductCreator) http.Handler
 			return
 		}
 		log.Info("product created", slog.Int64("id", req.ID))
-		responseOK(w, r, req)
+		responseOK(w, r, product)
 	}
 }
 
-func GetProduct(log *slog.Logger, productGetter ProductGetter) http.HandlerFunc {
+func GetProduct(log *slog.Logger, productGetter service.ProductService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req productDTO.DTOid
+		var req DTO.ProductDTOid
 		err := decode.Decode(w, r, log, &req)
 		if err != nil {
 			return
 		}
 		product, err := productGetter.GetProducts(req.ID)
 		if err != nil {
-			if errors.Is(err, storage.ErrProductNotFound) {
+			if errors.Is(err, errs.ErrProductNotFound) {
 				log.Info("product doesn't exist", slog.Int64("id", req.ID))
 				render.JSON(w, r, response.Error("product doesn't exist"))
 				return
@@ -73,30 +67,25 @@ func GetProduct(log *slog.Logger, productGetter ProductGetter) http.HandlerFunc 
 			render.JSON(w, r, response.Error("failed to get product"))
 			return
 		}
-		if product.Amount == 0 {
-			log.Error("product is empty", storage.ErrProductsEmpty)
-			render.JSON(w, r, response.Error("product is empty"))
-			return
-		}
-		log.Info("got product", slog.Int64("id", product.ID),
-			slog.Int64("price", product.Price),
-			slog.Int64("amount", product.Amount),
+		log.Info("got product", slog.Int64("id", product.Id),
+			slog.Int("price", product.Price),
+			slog.Int("amount", product.Amount),
 			slog.String("name", product.Name))
 		responseOK(w, r, product)
 	}
 }
 
-func UpdateProduct(log *slog.Logger, productUpdater ProductUpdater) http.HandlerFunc {
+func UpdateProduct(log *slog.Logger, productUpdater service.ProductService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req productDTO.DTOUpdate
+		var req DTO.ProductDTOUpdate
 		err := decode.Decode(w, r, log, &req)
 		if err != nil {
 			return
 		}
 		product, err := productUpdater.GetProducts(req.ID)
 		if err != nil {
-			if errors.Is(err, storage.ErrProductNotFound) {
-				log.Error("there is no such product", storage.ErrProductNotFound)
+			if errors.Is(err, errs.ErrProductNotFound) {
+				log.Error("there is no such product", errs.ErrProductNotFound)
 				render.JSON(w, r, response.Error("product not found"))
 				return
 			}
@@ -113,7 +102,7 @@ func UpdateProduct(log *slog.Logger, productUpdater ProductUpdater) http.Handler
 		if req.Price != nil {
 			product.Price = *req.Price
 		}
-		if err := valid.CreateValidator().Struct(product); err != nil {
+		if err = valid.CreateValidator().Struct(product); err != nil {
 			var validateErr validator.ValidationErrors
 			errors.As(err, &validateErr)
 			log.Error("invalid request", sl.Err(err))
@@ -132,13 +121,34 @@ func UpdateProduct(log *slog.Logger, productUpdater ProductUpdater) http.Handler
 	}
 }
 
-//TODO ОПЕРАЦИИ
+func DeleteProduct(log *slog.Logger, productDeleter service.ProductService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req DTO.ProductDTOid
+		err := decode.Decode(w, r, log, &req)
+		if err != nil {
+			return
+		}
+		err = productDeleter.DeleteProduct(req.ID)
+		if err != nil {
+			if errors.Is(err, errs.ErrProductNotFound) {
+				log.Info("product not found")
+				render.JSON(w, r, response.Error("product not found"))
+				return
+			}
+			log.Error("failed to delete product")
+			render.JSON(w, r, response.Error("failed to delete product"))
+			return
+		}
+		log.Info("product deleted", slog.Int64("id", req.ID))
+		response.OK()
+	}
+}
 
-func responseOK(w http.ResponseWriter, r *http.Request, req productDTO.ProductDTO) {
+func responseOK(w http.ResponseWriter, r *http.Request, req storages.Product) {
 	render.JSON(w, r, Response{
 		Response: response.OK(),
-		Answer: productDTO.ProductDTO{
-			ID:     req.ID,
+		Answer: DTO.ProductDTO{
+			ID:     req.Id,
 			Name:   req.Name,
 			Price:  req.Price,
 			Amount: req.Amount,

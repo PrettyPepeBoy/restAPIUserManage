@@ -1,17 +1,16 @@
 package valid
 
 import (
-	"tstUser/internal/http-server/transport/productDTO"
-	"tstUser/internal/http-server/transport/userDTO"
-	"tstUser/internal/storage"
+	"tstUser/internal/storage/storages"
+	"tstUser/internal/storage/storages/errs"
 )
 
-func Buy(user userDTO.UserDTO, product productDTO.ProductDTO) error {
+func Buy(user storages.User, product storages.Product) error {
 	if product.Amount == 0 {
-		return storage.ErrProductsEmpty
+		return errs.ErrProductsEmpty
 	}
-	if user.Cash-int(product.Price) < 0 {
-		return storage.ErrCashIsNotEnough
+	if user.Cash-product.Price < 0 {
+		return errs.ErrCashIsNotEnough
 	}
 	return nil
 }

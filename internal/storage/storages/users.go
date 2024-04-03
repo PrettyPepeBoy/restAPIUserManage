@@ -1,15 +1,14 @@
-package sqlite
+package storages
 
 import (
 	"database/sql"
 	"errors"
 	"fmt"
 	"github.com/mattn/go-sqlite3"
-	"tstUser/internal/http-server/transport/userDTO"
-	"tstUser/internal/storage"
+	"tstUser/internal/storage/storages/errs"
 )
 
-type Storage struct {
+type UserStorage struct {
 	db              *sql.DB
 	StmtDelete      *sql.Stmt
 	StmtCreate      *sql.Stmt
@@ -18,8 +17,17 @@ type Storage struct {
 	StmtUpdateUser  *sql.Stmt
 }
 
-func NewUserTable(storagePath string) (*Storage, error) {
-	const op = "data-logic/pack/storage/sqlite/New"
+type User struct {
+	Id      int64
+	Name    string
+	Surname string
+	Mail    string
+	Date    string
+	Cash    int
+}
+
+func NewUserTable(storagePath string) (*UserStorage, error) {
+	const op = "data-logic/pack/storage/storages/New"
 
 	db, err := sql.Open("sqlite3", storagePath)
 	if err != nil {
@@ -70,7 +78,7 @@ func NewUserTable(storagePath string) (*Storage, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return &Storage{db: db,
+	return &UserStorage{db: db,
 		StmtDelete:      stmtDelete,
 		StmtCreate:      stmtCreate,
 		StmtCheckUserID: stmtCheckUserId,
@@ -79,13 +87,13 @@ func NewUserTable(storagePath string) (*Storage, error) {
 	}, nil
 }
 
-func (s *Storage) CreateUser(name, surname, mail, date string, cash int) (int64, error) {
-	const op = "storage/sqlite/CreateUser"
-	res, err := s.StmtCreate.Exec(name, surname, mail, cash, date)
+func (s *UserStorage) CreateUser(user User) (int64, error) {
+	const op = "storage/storages/CreateUser"
+	res, err := s.StmtCreate.Exec(user.Name, user.Surname, user.Mail, user.Cash, user.Date)
 	if err != nil {
 		var sqliteErr sqlite3.Error
 		if errors.As(err, &sqliteErr) && errors.Is(sqliteErr.ExtendedCode, sqlite3.ErrConstraintUnique) {
-			return 0, fmt.Errorf("%s, %w", op, storage.ErrUserExist)
+			return 0, fmt.Errorf("%s, %w", op, errs.ErrUserExist)
 		}
 		return 0, fmt.Errorf("%s: execute statemnt: %w", op, err)
 	}
@@ -98,8 +106,8 @@ func (s *Storage) CreateUser(name, surname, mail, date string, cash int) (int64,
 	return id, nil
 }
 
-func (s *Storage) DeleteUser(id int64) error {
-	const op = "storage/sqlite/DeleteUser"
+func (s *UserStorage) DeleteUser(id int64) error {
+	const op = "storage/storages/DeleteUser"
 	res, err := s.StmtDelete.Exec(id)
 	if err != nil {
 		return fmt.Errorf("%s, %w", op, err)
@@ -110,17 +118,17 @@ func (s *Storage) DeleteUser(id int64) error {
 		return fmt.Errorf("%s, %w", op, err)
 	}
 	if rows == 0 {
-		return fmt.Errorf("%s, %w", op, storage.ErrUserNotFound)
+		return fmt.Errorf("%s, %w", op, errs.ErrUserNotFound)
 	}
 	return nil
 }
 
-func (s *Storage) CheckUserID(Id int64) (string, error) {
-	const op = "storage/sqlite/CheckUserID"
+func (s *UserStorage) CheckUserID(Id int64) (string, error) {
+	const op = "storage/storages/CheckUserID"
 	var userMail string
 	err := s.StmtCheckUserID.QueryRow(Id).Scan(&userMail)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "", storage.ErrUserNotFound
+		return "", errs.ErrUserNotFound
 	}
 	if err != nil {
 		return "", fmt.Errorf("%s: execute statement: %w", op, err)
@@ -128,22 +136,22 @@ func (s *Storage) CheckUserID(Id int64) (string, error) {
 	return userMail, nil
 }
 
-func (s *Storage) GetUserInfo(ID int64) (userDTO.UserDTO, error) {
-	const op = "storage/sqlite/GetUser"
-	var user userDTO.UserDTO
-	err := s.StmtFindUser.QueryRow(ID).Scan(&user.ID, &user.Name, &user.Surname, &user.Mail, &user.Cash, &user.Date)
+func (s *UserStorage) GetUserInfo(Id int64) (User, error) {
+	const op = "storage/storages/GetUser"
+	var user User
+	err := s.StmtFindUser.QueryRow(Id).Scan(&user.Id, &user.Name, &user.Surname, &user.Mail, &user.Cash, &user.Date)
 	if errors.Is(err, sql.ErrNoRows) {
-		return userDTO.UserDTO{}, storage.ErrUserNotFound
+		return User{}, errs.ErrUserNotFound
 	}
 	if err != nil {
-		return userDTO.UserDTO{}, fmt.Errorf("%s: execute statement: %w", op, err)
+		return User{}, fmt.Errorf("%s: execute statement: %w", op, err)
 	}
 	return user, nil
 }
 
-func (s *Storage) UpdateUser(user userDTO.UserDTO) error {
-	const op = "storage/sqlite/UpdateUser"
-	res, err := s.StmtUpdateUser.Exec(user.Name, user.Surname, user.Mail, user.Cash, user.Date, user.ID)
+func (s *UserStorage) UpdateUser(user User) error {
+	const op = "storage/storages/UpdateUser"
+	res, err := s.StmtUpdateUser.Exec(user.Name, user.Surname, user.Mail, user.Cash, user.Date, user.Id)
 	if err != nil {
 		return fmt.Errorf("%s: execute statment: %w", op, err)
 	}
@@ -152,7 +160,7 @@ func (s *Storage) UpdateUser(user userDTO.UserDTO) error {
 		return fmt.Errorf("%s: execute statment: %w", op, err)
 	}
 	if rows == 0 {
-		return fmt.Errorf("%s, %w", op, storage.ErrUserNotFound)
+		return fmt.Errorf("%s, %w", op, errs.ErrUserNotFound)
 	}
 	return nil
 }

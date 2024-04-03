@@ -35,8 +35,11 @@ func validData(validate *validator.Validate) {
 	vErr := validate.RegisterValidation("date", func(fl validator.FieldLevel) bool {
 		text := fl.Field().String()
 		layout := "20060102"
-		_, err := time.Parse(layout, text)
+		data, err := time.Parse(layout, text)
 		if err != nil {
+			return false
+		}
+		if data.Year() < 1900 {
 			return false
 		}
 		return true
